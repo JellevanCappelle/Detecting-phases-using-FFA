@@ -1,3 +1,3 @@
-[submodule "Wolf Algorithm/libnpy"]
+[submodule "Wolff Algorithm/libnpy"]
 	path = libnpy
 	url = https://github.com/llohse/libnpy

@@ -90,18 +90,6 @@ class FFLayer(Layer):
         pos_gradient = (1 - pos_probs) * pos_state + self.mean_weight * (mean_of_means - self.means)
         neg_gradient = - neg_probs * neg_state
         
-        # calculate gradient multiplier, normalized at 100 inputs
-        if self.gradient_scaling:
-            if self.c is not None:
-                multiplier = (1 / self.c) * tf.cast(100 / tf.shape(pos_inputs)[1], tf.float32)
-                pos_gradient *= multiplier
-                neg_gradient *= multiplier
-            else:
-                d = self.d if self.d is not None else 1.
-                multiplier = (1 / d) * tf.cast(tf.sqrt(100 / tf.shape(pos_inputs)[1]), tf.float32)
-                pos_gradient *= multiplier
-                neg_gradient *= multiplier
-        
         # calculate gradient w.r.t. weights and biases per example
         gradient_by_weight = \
             tf.tensordot(pos_inputs, pos_gradient, [[0], [0]]) / tf.cast(tf.shape(pos_inputs)[0], tf.float32) + \

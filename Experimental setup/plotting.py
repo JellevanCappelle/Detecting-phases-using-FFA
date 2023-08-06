@@ -35,13 +35,18 @@ def derivative(curve):
     return (x, dy)
 
 def plot_order(exp: Experiment, results: dict, n_smooth: int = 10, plot_P_c: bool = True):
+    # obtain smoothed order curve and its (smoothed) derivative
     Ps = results["Ps"]
     order_curve = (Ps, results["order"])
     n_smooth = 10 if not exp.dataset_name == "mbl" else 50
     order_curve = smoothe(order_curve, n_smooth)
     d1 = smoothe(derivative(order_curve), n_smooth)
+
+    # critical point
     order_P_c = d1[0][np.argmax(np.abs(d1[1]))]
     print(f"{order_P_c=}")
+
+    # plot everything
     fig = plt.figure()
     ax1 = fig.add_subplot()
     ax2 = ax1.twinx()

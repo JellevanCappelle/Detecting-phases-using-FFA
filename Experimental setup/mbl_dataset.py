@@ -6,15 +6,15 @@ from typing import Optional
 import os
 import re
 
-r = 1001
-n = 100
-k = 20
-max_W = 10
-correlation_features = False
+# DATASET PARAMETERS
+r = 1001 # dataset resolution: number of different values of W for which to generate samples
+n = 100 # number of Hamiltonians sampled per value of W
+k = 20 # number of configurations sampled per Hamiltonian. if set to `None`, the wavefunction itself is sampled
+max_W = 10 # W ranges from 0 to `max_W`
+correlation_features = False # if set to `True`, compute correlation features using the `k` samples from each Hamiltonian
 permutations = min(math.factorial(k), 10) if k is not None else None
 
 FOLDER = "mbl_dataset"
-
 if k is not None:
     SUBFOLDER = f"{FOLDER}/{r=}, {n=}, {k=}, {max_W=}"
 else:

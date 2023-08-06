@@ -10,7 +10,7 @@ def load_data(N):
                if (m := re.search(r"g=(\d+\.\d+).npy", filename)) is not None}
     return dataset
 
-# AWFUL AWFUL HACK, all because Jax doesn't run on Windows
+# Jax doesn't run on Windows, so this script has to be run in WSL or on Linux to generate the dataset
 if sys.platform != "win32":
     import netket
     from netket.hilbert import Spin
@@ -69,7 +69,7 @@ if sys.platform != "win32":
         log = netket.logging.RuntimeLog()
         driver.run(n_iter = 600, out = log)
         
-        divisor = 50
+        divisor = 50 # samples are divided in 50 parts, the variational state is reset between each part
         def sample_states():
             vstate.reset()
             n = n_samples // divisor
@@ -78,16 +78,16 @@ if sys.platform != "win32":
         return np.vstack([sample_states() for _ in range(divisor)])
 
     if __name__ == "__main__":
-        for N in [20, 40, 80]:
+        for N in [20, 40]: # values of chain length to generate a dataset for
             subfolder = f"{FOLDER}/{N=}"
             if not os.path.exists(subfolder):
                 os.makedirs(subfolder)
-            gs = np.linspace(0, 2, 101)
+            gs = np.linspace(0, 2, 101) # values of g to sample
             for g in gs:
                 file = f"{subfolder}/{g=}.npy"
                 if not os.path.exists(file):
                     print(f"\n\n{g=}")
-                    samples = chain(N, g, 1000)
+                    samples = chain(N, g, 1000) # 1000 samples per value of g
                     np.random.shuffle(samples)
                     print(f"{samples.shape=}")
                     for i in range(5):

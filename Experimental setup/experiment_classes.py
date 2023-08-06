@@ -1,17 +1,17 @@
 import tensorflow as tf
-from tensorflow.keras import optimizers  # type: ignore
-from tensorflow.keras import callbacks # type: ignore
+from tensorflow.keras import optimizers
+from tensorflow.keras import callbacks
 import numpy as np
 
 from FFA import FFModel
 from FFScalarDiscriminator import FFScalarDiscriminator
-from tfim_dataset import load_data as load_tfim # type: ignore
-from mbl_dataset import load_data as load_mbl # type: ignore
-from kitaev_dataset import load_data as load_kitaev # type: ignore
+from tfim_dataset import load_data as load_tfim
+from mbl_dataset import load_data as load_mbl
+from kitaev_dataset import load_data as load_kitaev
 
 class Experiment:
     def __init__(self):
-        # name to be defined by subclass
+        # tuning parameter name to be defined by subclass
         self.param_name = ""
 
         # examples of high order and low order inputs are to be defined by subclasses

@@ -5,6 +5,8 @@ import numpy as np
 
 from FFA import FFModel
 from FFScalarDiscriminator import FFScalarDiscriminator
+from ising_dataset import load_dataset as load_ising
+from potts_dataset import load_dataset as load_potts
 from tfim_dataset import load_data as load_tfim
 from mbl_dataset import load_data as load_mbl
 from kitaev_dataset import load_data as load_kitaev
@@ -163,6 +165,28 @@ class Experiment:
             "op_O": op_O,
             "order": order,
         } if op_O is not None else {})
+
+class IsingExperiment(Experiment):
+    def __init__(self, L: int, n_low_order: int = 1000):
+        super().__init__()
+        data = load_ising(L)
+        self.prepare_dataset("ising", data)
+        self.param_name = "T"
+
+        # initialize examples of high- and low order inputs
+        self.high_O_inputs = np.vstack([np.full((L*L,), 1), np.full((L*L,), -1)])
+        self.low_O_inputs = np.random.choice([1, -1], (n_low_order, L*L))
+
+class PottsExperiment(Experiment):
+    def __init__(self, q: int, L: int, n_low_order: int = 1000):
+        super().__init__()
+        data = load_potts(q, L)
+        self.prepare_dataset("potts", data)
+        self.param_name = "T"
+
+        # initialize examples of high- and low order inputs
+        self.high_O_inputs = np.tile(np.eye(q), L * L)
+        self.low_O_inputs = np.eye(q)[np.random.choice(q, size = (n_low_order, L * L))].reshape(n_low_order, L * L * q)
 
 class TFIMExperiment(Experiment):
     def __init__(self, N: int, n_low_order: int = 1000):

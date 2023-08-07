@@ -24,6 +24,8 @@ I have used the version of libnpy from april 2023 in my project.
 To run an experiment, simply configure `experiment.py` to the desired physical model, network architecture and hyperparameters, and then execute the script.
 Before running experiments, you first need to generate a dataset for the selected physical model.
 
+To save & load weights of a trained network, use the `save_weights()` and `load_weights()` functions of the `Experiment` class.
+
 ## Generating a dataset
 The files ending in `_dataset.py` are responsible for generating and loading datasets for the various physical models.
 Evert van Nieuwenburg has provided `mbl_dataset.py` (with some minor edits by myself), as well as the Kitaev chain dataset.

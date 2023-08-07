@@ -35,7 +35,7 @@ Below are instructions for each model.
 ### Ising & Potts
 Build the Ising or Potts simulator from the 'Wolff Algorithm' folder.
 Then, configure `ising_dataset.py` or `potts_dataset.py` and run the script.
-Make sure to change the variable `simulator_path` in each script to point to the location of the simulator executable.
+Make sure to change the variable `SIMULATOR_PATH` in each script to point to the location of the simulator executable.
 
 ### TFIM
 To generate a dataset, install [NetKet](https://netket.readthedocs.io), and configure and run `tfim_dataset.py`.

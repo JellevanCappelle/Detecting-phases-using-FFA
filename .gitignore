@@ -3,3 +3,5 @@ Experimental setup/__pycache__/*
 Experimental setup/.vscode/*
 Experimental setup/*_dataset/*
 *.exe
+
+!Experimental setup/kitaev_dataset/*

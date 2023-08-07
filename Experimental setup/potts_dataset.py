@@ -4,7 +4,7 @@ import os
 import subprocess
 
 FOLDER = "potts_dataset"
-simulator_path = "Potts Simulator.exe"
+SIMULATOR_PATH = "Potts Simulator.exe"
 threads = 8
 batch_size = 100
 
@@ -27,7 +27,7 @@ def generate_dataset(q: int, L: int, N_temperatures: int, N_samples: int, path: 
     for T in np.linspace(0, 2, N_temperatures) * Tc:
         T_str = f"{T:.4f}"
         file = f"{path}/T = {T_str}.npy"
-        subprocess.call([simulator_path, str(N_samples), str(q), str(L), T_str, str(threads), str(batch_size), file])
+        subprocess.call([SIMULATOR_PATH, str(N_samples), str(q), str(L), T_str, str(threads), str(batch_size), file])
 
 def load_dataset(q: int, L: int):
     path = f"{FOLDER}/q = {q}/L = {L}"

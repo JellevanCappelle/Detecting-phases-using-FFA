@@ -4,7 +4,7 @@ import os
 import subprocess
 
 FOLDER  = "ising_dataset"
-simulator_path = "Ising Simulator.exe"
+SIMULATOR_PATH = "Ising Simulator.exe"
 threads = 8
 batch_size = 100
 
@@ -33,7 +33,7 @@ def generate_dataset(L: int, N_temperatures: int, N_samples: int, path: str):
     for T in np.linspace(1.95, 0.05, N_temperatures) * Tc:
         T_str = f"{T:.4f}"
         file = f"{path}/T = {T_str}.npy"
-        subprocess.call([simulator_path, str(N_samples), str(L), T_str, str(threads), str(batch_size), file])
+        subprocess.call([SIMULATOR_PATH, str(N_samples), str(L), T_str, str(threads), str(batch_size), file])
         compress(file)
 
 def load_dataset(L: int):

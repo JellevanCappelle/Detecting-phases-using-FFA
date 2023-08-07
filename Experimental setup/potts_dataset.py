@@ -10,11 +10,10 @@ batch_size = 100
 
 def load(q: int, file: str):
     data = np.load(file)
-    data.reshape((data.shape[0], -1))
     
     # convert to one-hot vector per pixel, by indexing the identity matrix with the pixel label
     identity = np.eye(q, dtype = np.uint8) # use uint8 and cast during training to save memory
-    return identity[data]
+    return identity[data].reshape((data.shape[0], -1))
 
 def generate_dataset(q: int, L: int, N_temperatures: int, N_samples: int, path: str):
     # create folder

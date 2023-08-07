@@ -45,6 +45,6 @@ def load_dataset(L: int):
 
 if __name__ == "__main__":
     # generate dataset for different system sizes
-    for L in [10, 20, 30, 40, 60, 80, 100]:
+    for L in [10, 20, 30, 40]:
         path = f"{FOLDER}/L = {L}"
         generate_dataset(L, 1000, 1000 if L <= 50 else 200 if L <= 100 else 100, path)

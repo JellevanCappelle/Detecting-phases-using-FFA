@@ -2,6 +2,7 @@ import tensorflow as tf
 from tensorflow.keras import optimizers
 from tensorflow.keras import callbacks
 import numpy as np
+import os
 
 from FFA import FFModel
 from FFScalarDiscriminator import FFScalarDiscriminator
@@ -98,6 +99,13 @@ class Experiment:
         schedule = lr_callback([self.ffmodel], n_epochs)
         self.model.fit(self.train_x, self.train_y, batch_size = batch_size, epochs = n_epochs, validation_data = [self.valid_x, self.valid_y], callbacks = [schedule], verbose = 2)
     
+    def save_weights(self, path: str):
+        os.makedirs(path)
+        self.model.save_weights(path + "/weights")
+
+    def load_weights(self, path: str):
+        self.model.load_weights(path + "/weights")
+
     def run(self, neutral_label: bool):
         # measure derivative & correlation between Ts
         outputs = {}
@@ -172,6 +180,7 @@ class IsingExperiment(Experiment):
         data = load_ising(L)
         self.prepare_dataset("ising", data)
         self.param_name = "T"
+        self.L = L
 
         # initialize examples of high- and low order inputs
         self.high_O_inputs = np.vstack([np.full((L*L,), 1), np.full((L*L,), -1)])
@@ -183,6 +192,8 @@ class PottsExperiment(Experiment):
         data = load_potts(q, L)
         self.prepare_dataset("potts", data)
         self.param_name = "T"
+        self.q = q
+        self.L = L
 
         # initialize examples of high- and low order inputs
         self.high_O_inputs = np.tile(np.eye(q), L * L)
@@ -194,6 +205,7 @@ class TFIMExperiment(Experiment):
         data = load_tfim(N)
         self.prepare_dataset("tfim", data)
         self.param_name = "g"
+        self.N = N
 
         # initialize examples of high- and low order inputs
         self.high_O_inputs = np.vstack([np.full((N,), 1), np.full((N,), -1)])
@@ -212,6 +224,7 @@ class MBLExperiment(Experiment):
         data = load_mbl(L)
         self.prepare_dataset("mbl", data)
         self.param_name = "W"
+        self.L = L
 
         # initialize examples of high- and low order inputs
         if descending_order:

@@ -1,5 +1,5 @@
 # About
-This repository contains (most of) the code for my bachelor's thesis "Detecting Phase Transitions using Forward-Forward Neural Networks".
+This repository contains (most of) the code for my bachelor's [thesis](https://theses.liacs.nl/2648) "Detecting Phase Transitions using Forward-Forward Neural Networks".
 As the name implies, the goal of my project has been to apply the [Forward-Forward Algorithm](https://arxiv.org/abs/2212.13345) to physical models with a phase transition in an attempt to find the critical point, preferably without using any prior knowledge.
 
 This is accomplished by training a discriminative Forward-Forward network to learn features that are unique to specific ranges of temperature or other tuning parameter.

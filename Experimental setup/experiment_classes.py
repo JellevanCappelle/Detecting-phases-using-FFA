@@ -8,9 +8,13 @@ from FFA import FFModel
 from FFScalarDiscriminator import FFScalarDiscriminator
 from ising_dataset import load_dataset as load_ising
 from potts_dataset import load_dataset as load_potts
+from xy_dataset import load_dataset as load_xy
 from tfim_dataset import load_data as load_tfim
 from mbl_dataset import load_data as load_mbl
 from kitaev_dataset import load_data as load_kitaev
+from bh_dataset import load_dataset as load_bh
+from igt_dataset import load_dataset as load_igt
+
 
 class Experiment:
     def __init__(self):
@@ -78,6 +82,8 @@ class Experiment:
         
         # call model once to intialize all weights
         self.model((tf.constant([self.train_x[0]]), tf.constant([self.train_y[0]])))
+        self.layers = layers
+        self.output_dim = sum(layers[min_output:])
 
     def train(self, n_epochs: int, batch_size: int):
         class lr_callback(callbacks.Callback):
@@ -199,6 +205,14 @@ class PottsExperiment(Experiment):
         self.high_O_inputs = np.tile(np.eye(q), L * L)
         self.low_O_inputs = np.eye(q)[np.random.choice(q, size = (n_low_order, L * L))].reshape(n_low_order, L * L * q)
 
+class XYExperiment(Experiment):
+    def __init__(self, L: int):
+        super().__init__()
+        data = load_xy(L)
+        self.prepare_dataset("xy", data) # TODO: add ordered/unordered examples?
+        self.param_name = "T"
+        self.L = L
+
 class TFIMExperiment(Experiment):
     def __init__(self, N: int, n_low_order: int = 1000):
         super().__init__()
@@ -234,4 +248,26 @@ class MBLExperiment(Experiment):
             self.high_O_inputs = self.data[self.Ps[-1]]
             self.low_O_inputs = self.data[self.Ps[0]]
 
-        
+class BHExperiment(Experiment):
+    def __init__(self, L: int, descending_order: bool = True):
+        super().__init__()
+        data = load_bh(L)
+        self.prepare_dataset("bose-hubbard", data)
+        self.param_name = "W"
+        self.L = L
+
+        # initialize examples of high- and low order inputs
+        if descending_order:
+            self.high_O_inputs = self.data[self.Ps[0]]
+            self.low_O_inputs = self.data[self.Ps[-1]]
+        else:
+            self.high_O_inputs = self.data[self.Ps[-1]]
+            self.low_O_inputs = self.data[self.Ps[0]]
+
+class IGTExperiment(Experiment):
+    def __init__(self, L: int):
+        super().__init__()
+        data = load_igt(L)
+        self.prepare_dataset("igt", data)
+        self.param_name = "T"
+        self.L = L

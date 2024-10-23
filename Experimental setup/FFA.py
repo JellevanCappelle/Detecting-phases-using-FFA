@@ -6,7 +6,7 @@ from tensorflow.keras import metrics
 
 class AvgMetric(metrics.Metric):
     def __init__(self, name):
-        super().__init__(name)
+        super().__init__(name = name, dtype = tf.float32)
         self.n = tf.Variable(0, dtype = tf.int32)
         self.sum = tf.Variable(0, dtype = tf.float32)
     

@@ -18,13 +18,13 @@ def load_dataset(L: int):
     return dataset
 
 if __name__ == "__main__":
-    L = 4
+    L = 16
     S = (2 * L - 1, 2 * L - 1)
     dataset = load_dataset(L)
     keys = list(dataset.keys())
     print(keys)
     print(keys[len(keys) // 2])
-    #print(dataset[keys[0]][0].reshape(S))
+    print(dataset[keys[0]][0].reshape(S))
     #print(dataset[keys[0]][-1].reshape(S))
     #print(dataset[keys[len(keys) // 2]][0].reshape(S))
     #print(dataset[keys[len(keys) // 2]][-1].reshape(S))

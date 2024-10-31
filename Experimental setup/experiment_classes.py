@@ -4,7 +4,7 @@ from tensorflow.keras import callbacks
 import numpy as np
 import os
 
-from FFA import FFModel
+from FFA_new import FFModel
 from FFScalarDiscriminator import FFScalarDiscriminator
 from ising_dataset import load_dataset as load_ising
 from potts_dataset import load_dataset as load_potts
@@ -24,6 +24,10 @@ class Experiment:
         # examples of high order and low order inputs are to be defined by subclasses
         # can also be left at None, in which case no order parameter results will be returned
         self.high_O_inputs = self.low_O_inputs = None
+
+        # shape must be set for 2D experiments
+        self.shape = None
+        self.convolutional = False
 
     def prepare_dataset(self, name: str, data: dict, split_per_P: bool = True):
         self.dataset_name = name
@@ -65,13 +69,23 @@ class Experiment:
         self.valid_x = valid_x
         self.valid_y = valid_y
 
-    def init_model(self, layers: list[int], min_output: int, min_offset: float,
+    def init_model(self, layers: list, min_output: int, min_offset: float,
                    n_buckets: int = 10,
                    lr: float = 0.01,
                    momentum: float = 0.9,
                    peer_norm: float = 0.03,
                    peer_norm_delay: float = 0.9,):
         
+        # sanity checks for convolutional layers
+        if isinstance(layers[0], tuple):
+            if self.shape is None:
+                raise Exception("This experiment is not suited for convolutional layers.")
+            self.convolutional = True
+            # reshape dataset
+            self.reshape = lambda X: X.reshape((X.shape[0], self.shape[0], self.shape[1], -1)) # type: ignore
+            self.train_x = self.reshape(self.train_x)
+            self.valid_x = self.reshape(self.valid_x)
+
         adjusted_lr = lr * (1 - momentum)
 
         ff_opt = optimizers.SGD(adjusted_lr, momentum)
@@ -150,6 +164,9 @@ class Experiment:
 
         # operator for retrieving 'order' from activities directly
         if self.high_O_inputs is not None and self.low_O_inputs is not None:
+            if self.convolutional:
+                self.high_O_inputs = self.reshape(self.high_O_inputs)
+                self.low_O_inputs = self.reshape(self.low_O_inputs)
             if neutral_label:
                 high_O = self.model(self.high_O_inputs).numpy().mean(axis = 0)
                 low_O = self.model(self.low_O_inputs).numpy().mean(axis = 0)
@@ -187,6 +204,7 @@ class IsingExperiment(Experiment):
         self.prepare_dataset("ising", data)
         self.param_name = "T"
         self.L = L
+        self.shape = (L, L)
 
         # initialize examples of high- and low order inputs
         self.high_O_inputs = np.vstack([np.full((L*L,), 1), np.full((L*L,), -1)])
@@ -200,6 +218,7 @@ class PottsExperiment(Experiment):
         self.param_name = "T"
         self.q = q
         self.L = L
+        self.shape = (L, L)
 
         # initialize examples of high- and low order inputs
         self.high_O_inputs = np.tile(np.eye(q), L * L)
@@ -212,6 +231,7 @@ class XYExperiment(Experiment):
         self.prepare_dataset("xy", data) # TODO: add ordered/unordered examples?
         self.param_name = "T"
         self.L = L
+        self.shape = (L, L)
 
 class TFIMExperiment(Experiment):
     def __init__(self, N: int, n_low_order: int = 1000):
@@ -271,3 +291,4 @@ class IGTExperiment(Experiment):
         self.prepare_dataset("igt", data)
         self.param_name = "T"
         self.L = L
+        self.shape = (2 * L - 1, 2 * L - 1)

@@ -74,23 +74,10 @@ def plot_potts_spectrum(exp: PottsExperiment):
     plt.tight_layout()
     plt.show()
 
-    # RGB image
-    # img = np.zeros((units, len(Ps), 3))
-    # for y, clr in zip(y_by_q[1:], palette[1:]):
-    #     y = np.array(y).T
-    #     y = np.maximum(0, y - y.mean())
-    #     y /= y.max()
-    #     y_img = np.tile(y.reshape((units, len(Ps), 1)), (1, 1, 3)) * np.array(clr)
-    #     img += y_img
-    # plt.imshow(img, aspect = "auto", interpolation = "nearest", extent = (Ps[0], Ps[-1], 0, units))
-    # plt.show()
-
     # most-active diagram
     max_pref = y_by_q.max(axis = 0, keepdims = True)
     preference = np.where((y_by_q == max_pref) & (max_pref > 0), 1, 0)
     preference[0] += (max_pref == 0)[0]
-    # pref_scaling = 10
-    # preference = scipy.special.softmax(pref_scaling * y_by_q / y_by_q.max(), axis = 0)
     img = np.zeros((units, len(Ps), 3))
     for pref, clr in zip(preference, palette):
         y_img = np.tile(pref.T.reshape((units, len(Ps), 1)), (1, 1, 3)) * np.array(clr)
@@ -105,4 +92,34 @@ def plot_potts_spectrum(exp: PottsExperiment):
     plt.imshow(img, aspect = "auto", interpolation = "nearest", extent = (Ps[0], Ps[-1], 0, units))
     plt.xlabel("$T$")
     plt.ylabel("unit")
+    plt.show()
+
+def plot_potts_acitivity_by_class(exp: PottsExperiment):
+    # collect andsplit validation data by state
+    units = exp.output_dim
+    y_by_q = [[] for _ in range(exp.q + 1)]
+    samples = exp.valid_x
+    leftover = np.full(samples.shape[0], True)
+    for q in range(exp.q):
+        test = np.tile(np.eye(exp.q)[q], exp.L ** 2)
+        magnetization = samples.dot(test) / exp.L ** 2
+        selection = magnetization.flatten() > 0.5
+        leftover &= ~selection
+        magnetized = samples[selection]
+        y = exp.model(magnetized).numpy()
+        y_by_q[q + 1] = y.mean(axis = 0)
+    demagnetized = samples[leftover]
+    y = exp.model(demagnetized).numpy()
+    y_by_q[0] = y.mean(axis = 0)
+
+    # make plot
+    y_by_q = np.array(y_by_q)
+    y_by_q = y_by_q > y_by_q.mean(axis = 0, keepdims = True)
+    fig, ax = plt.subplots()
+    ax.imshow(y_by_q, aspect = "auto", interpolation = "nearest", extent = (0, units, 0, exp.q + 1))
+    ax.set_yticks(np.arange(0.5, exp.q + 1))
+    states = ["demagnetized"] + [f"state {q + 1}" for q in range(exp.q)]
+    ax.set_yticklabels(states[::-1])
+    ax.set_xlabel("unit")
+    plt.tight_layout()
     plt.show()

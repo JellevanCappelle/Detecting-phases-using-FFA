@@ -1,11 +1,11 @@
 from experiment_classes import IsingExperiment, PottsExperiment, XYExperiment, TFIMExperiment, KitaevExperiment, MBLExperiment, BHExperiment, IGTExperiment
 from plotting import plot_matrix, plot_order, plot_pca, plot_L2, plot_spectrum, plot_pca_deriv
-from potts_plot import plot_potts_spectrum
+from potts_plot import plot_potts_spectrum, plot_potts_acitivity_by_class
 from ising_plot import plot_ising_spectrum
 import numpy as np
 
 # prepare dataset
-exp = IsingExperiment(30) # IsingExperiment(30) # PottsExperiment(5, 30) # XYExperiment(40) # TFIMExperiment(40) # KitaevExperiment() # MBLExperiment(8) # BHExperiment(8) # IGTExperiment(4)
+exp = PottsExperiment(5, 30) # IsingExperiment(30) # PottsExperiment(5, 30) # XYExperiment(40) # TFIMExperiment(40) # KitaevExperiment() # MBLExperiment(8) # BHExperiment(8) # IGTExperiment(4)
 
 # model-specific hyperparameters
 lr = 0.01
@@ -29,6 +29,9 @@ match exp.dataset_name:
     case _:
         model = [30, dim]
 
+#model = [(10, 1, 30), 5]#[(7, 7, 2560), 2]
+#lr = 0.01
+model = [30]
 exp.init_model(model, len(model) - 1, lr = lr, min_offset = min_offset)
 # exp.init_model([30, 2], 0, lr = lr, min_offset = min_offset)
 exp.train(n_epochs, batch_size)
@@ -41,8 +44,9 @@ print(f"class-based {exp.param_name}_c: {class_P_c}")
 print(f"similarity-based {exp.param_name}_c: {sim_P_c}")
 
 # plot results
-# if isinstance(exp, PottsExperiment):
-#     plot_potts_spectrum(exp)
+if isinstance(exp, PottsExperiment):
+    plot_potts_acitivity_by_class(exp)
+    plot_potts_spectrum(exp)
 # if isinstance(exp, IsingExperiment):
 #     plot_ising_spectrum(exp)
 plot_matrix(exp, results, False)
@@ -55,5 +59,5 @@ n_group = 10 if exp.dataset_name in ["mbl", "bose-hubbard", "igt"] else 1
 plot_pca(exp, midpoint = midpoint, n_group = n_group, raw = True)
 plot_pca(exp, midpoint = midpoint, n_group = n_group)
 plot_pca_deriv(exp)
-plot_spectrum(exp)
-plot_L2(exp)
+#plot_spectrum(exp)
+#plot_L2(exp)

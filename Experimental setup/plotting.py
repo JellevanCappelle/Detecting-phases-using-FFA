@@ -70,7 +70,9 @@ def plot_pca(exp: Experiment, n = 3000, n_group = 1, midpoint = None, raw = Fals
     # generate `n` outputs, selected randomly from the validationset
     sample_idx = np.random.permutation(exp.valid_x.shape[0])[:n]
     v = exp.valid_x[sample_idx]
-    if not raw:
+    if raw:
+        v = v.reshape((v.shape[0], -1))
+    else:
         v = exp.model(v).numpy()
 
     # fit PCA with data

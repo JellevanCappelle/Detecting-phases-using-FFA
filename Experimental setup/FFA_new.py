@@ -165,8 +165,10 @@ class FFConv(Layer):
         `x` must have a float datatype.
         Output shape is same as input shape."""
         if isinstance(x, tuple):
-            return self.normalize(x[0]), self.normalize(x[1])
-        return tf.math.divide_no_nan(x, tf.sqrt(tf.reduce_mean(tf.pow(x, 2), axis = -1, keepdims = True)))
+            return (self.normalize(x[0]), x[1]) # don't normalize labels!
+        else:
+            norm = tf.sqrt(tf.reduce_mean(tf.pow(x, 2), axis = -1, keepdims = True))
+            return tf.math.divide_no_nan(x, norm)
     
     def calc_state_and_gradients(self, pos_inputs, neg_inputs):
         """calculates the forward-forward gradients.

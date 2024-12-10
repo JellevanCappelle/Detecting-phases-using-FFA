@@ -1,6 +1,8 @@
+import numpy as np
 import tensorflow as tf
 from tensorflow.keras import Model
 from tensorflow.keras.layers import Layer, Flatten
+from tensorflow.keras.initializers import RandomNormal
 from tensorflow.keras import metrics
 
 
@@ -33,8 +35,9 @@ class FFDense(Layer):
         self.weight_cost = weight_cost
 
     def build(self, input_shape):
-        # NOTE: sligtly different from the initialization used by Hinton
-        self.w = self.add_weight(name = "weights", shape = (input_shape[-1], self.size), initializer = "he_normal", trainable = True)
+        # same weight initialization as used in original code by Hinton, i.e. random normal scaled by 1/sqrt(fan_in)
+        initializer = RandomNormal(stddev = 1 / np.sqrt(input_shape[-1]))
+        self.w = self.add_weight(name = "weights", shape = (input_shape[-1], self.size), initializer = initializer, trainable = True)
         self.b = self.add_weight(name = "biases", shape = (self.size,), initializer = "zeros", trainable = True)
 
     def call(self, inputs):
@@ -79,7 +82,7 @@ class FFDense(Layer):
         threshold = 2 * tf.sqrt(1 / self.size) # TODO: get rid of this???
         mean_of_means = tf.reduce_mean(self.means)
         mean_of_means = tf.maximum(mean_of_means, threshold)
-        pos_gradient = (1 - pos_probs) * pos_state #+ self.mean_weight * (mean_of_means - self.means)
+        pos_gradient = (1 - pos_probs) * pos_state + self.mean_weight * (mean_of_means - self.means)
         neg_gradient = - neg_probs * neg_state
         
         # calculate gradient w.r.t. weights and biases per example
@@ -123,19 +126,24 @@ class FFConv(Layer):
         self.weight_cost = weight_cost
     
     def build(self, input_shape):
-        # NOTE: sligtly different from the initialization used by Hinton
+        # same weight initialization as used in original code by Hinton, i.e. random normal scaled by 1/sqrt(fan_in)
         if isinstance(input_shape[0], tuple): # infer the usage of separate labels from input_shape
             self.separate_labels = True
             input_shape, label_shape = input_shape
-        self.w = self.add_weight(name = "weights", shape = (self.width, self.width, input_shape[-1], self.filters), initializer = "he_normal", trainable = True)
+            stddev = 1 / np.sqrt(self.width * self.width * input_shape[-1] + label_shape[-1])
+        else:
+            stddev = 1 / np.sqrt(np.prod(input_shape[1:]))
+        initializer = RandomNormal(stddev = stddev)
+        self.w = self.add_weight(name = "weights", shape = (self.width, self.width, input_shape[-1], self.filters), initializer = initializer, trainable = True)
         self.b = self.add_weight(name = "biases", shape = (self.filters,), initializer = "zeros", trainable = True)
         if self.separate_labels:
-            self.lw = self.add_weight(name = "label_weights", shape = (label_shape[-1], self.filters), initializer = "he_normal", trainable = True)
+            self.lw = self.add_weight(name = "label_weights", shape = (label_shape[-1], self.filters), initializer = initializer, trainable = True)
     
     def call(self, inputs):
         if self.separate_labels:
             inputs, labels = inputs
-            bias = tf.reshape(tf.matmul(labels, self.lw) + self.b, (tf.shape(inputs)[0], 1, 1, self.filters)) # type: ignore
+            bias = tf.matmul(labels, self.lw) + self.b
+            bias = tf.reshape(bias, (tf.shape(inputs)[0], 1, 1, self.filters)) # type: ignore
         else:
             bias = self.b
         return tf.maximum(0., tf.nn.conv2d(inputs, self.w, self.stride, "VALID") + bias, name = "ffconv")
@@ -155,7 +163,7 @@ class FFConv(Layer):
     def normalize(self, x):
         """Return `x` normalized by the mean of squared channels.
         `x` must have a float datatype.
-        Output shape is `[batch_size, height, width, 1]`."""
+        Output shape is same as input shape."""
         if isinstance(x, tuple):
             return self.normalize(x[0]), self.normalize(x[1])
         return tf.math.divide_no_nan(x, tf.sqrt(tf.reduce_mean(tf.pow(x, 2), axis = -1, keepdims = True)))
@@ -192,8 +200,8 @@ class FFConv(Layer):
         gradient_by_weight = \
             tf.compat.v1.nn.conv2d_backprop_filter(pos_inputs, tf.shape(self.w), pos_gradient, (1, self.stride, self.stride, 1), "VALID") + \
             tf.compat.v1.nn.conv2d_backprop_filter(neg_inputs, tf.shape(self.w), neg_gradient, (1, self.stride, self.stride, 1), "VALID")
-        # TODO: is averaging already done in conv2d_backprop_filter_v2???
-        gradient_by_weight /= tf.cast(tf.reduce_prod(tf.shape(pos_inputs)[:3]), tf.float32) # take average gradient from batch and convolutions # type: ignore
+        # TODO: is averaging already done in conv2d_backprop_filter_v2??? -> no.
+        gradient_by_weight /= tf.cast(tf.reduce_prod(tf.shape(pos_gradient)[:3]), tf.float32) # take average gradient from batch and convolutions # type: ignore
         gradient_by_bias = tf.reduce_mean(pos_gradient + neg_gradient, (0, 1, 2))
         if self.separate_labels:
             pos_gradient_by_label = tf.reduce_mean(pos_gradient, (1, 2))
@@ -238,8 +246,6 @@ class FFModel(Model):
             if isinstance(size, tuple):
                 self.fflayers.append(FFConv(size[0], size[1], size[2], mean_delay, mean_weight, weight_cost))
             else:
-                if len(self.fflayers) > 0 and isinstance(self.fflayers[-1], FFConv): # add Flatten layer between convolutional and dense part
-                    self.fflayers.append(Flatten())
                 self.fflayers.append(FFDense(size, mean_delay, mean_weight, weight_cost))
         
         self.min_output_layer = min_output_layer
@@ -253,18 +259,21 @@ class FFModel(Model):
         self.neg_prob_metrics = [AvgMetric(f"neg_prob_{i + 1}") for i in range(len(self.fflayers))]
         
         # filter out actual FF layers for list of metrics to report
-        filterFF = lambda metrics: [m for i, m in enumerate(metrics) if isinstance(self.fflayers[i], FFDense | FFConv)]
         custom_metrics = [self.pairwise_metrics, self.pos_value_metrics, self.neg_value_metrics,
                           self.pos_good_metrics, self.neg_good_metrics, self.pos_prob_metrics, self.neg_prob_metrics]
-        self.custom_metrics = sum(filter(filterFF, custom_metrics), [])
+        self.custom_metrics = sum(custom_metrics, [])
+
+    def flatten(self, x):
+        return tf.reshape(x, (tf.shape(x)[0], -1)) # type: ignore
 
     @tf.function
     def call(self, x):
         # feed x through the network
         input = self.fflayers[0].normalize(x)
-        norm_states = [input := layer.normalize(layer(input))
-                       if isinstance(layer, FFDense | FFConv) else layer(input)
+        norm_states = [input := layer.normalize(layer(self.flatten(input))) if isinstance(layer, FFDense)
+                       else layer.normalize(layer(input))
                        for layer in self.fflayers]
+        norm_states = [self.flatten(x) for x in norm_states]# TODO: remove?
         return tf.concat(norm_states[self.min_output_layer:], 1)
     
     @tf.function
@@ -275,27 +284,29 @@ class FFModel(Model):
         gradients = []
         pos_state, neg_state = pos_inputs, neg_inputs
         for i, layer in enumerate(self.fflayers):
-            if isinstance(layer, FFDense | FFConv):
-                pos_norm, neg_norm = layer.normalize(pos_state), layer.normalize(neg_state)
-                pos_state, neg_state, grad, err = layer.calc_state_and_gradients(pos_norm, neg_norm)
-                self.pos_value_metrics[i].update_state(tf.reduce_mean(pos_state))
-                self.neg_value_metrics[i].update_state(tf.reduce_mean(neg_state))
-                self.pos_good_metrics[i].update_state(tf.reduce_mean(layer.goodness(pos_state)))
-                self.neg_good_metrics[i].update_state(tf.reduce_mean(layer.goodness(neg_state)))
-                self.pos_prob_metrics[i].update_state(tf.reduce_mean(layer.probability(pos_state)))
-                self.neg_prob_metrics[i].update_state(tf.reduce_mean(layer.probability(neg_state)))
-                self.pairwise_metrics[i].update_state(err)
-                gradients += grad
-            else:
-                pos_state, neg_state = layer(pos_state), layer(neg_state)
+            if isinstance(layer, FFDense):
+                pos_state, neg_state = self.flatten(pos_state), self.flatten(neg_state)
+            pos_norm, neg_norm = layer.normalize(pos_state), layer.normalize(neg_state)
+            pos_state, neg_state, grad, err = layer.calc_state_and_gradients(pos_norm, neg_norm)
+            self.pos_value_metrics[i].update_state(tf.reduce_mean(pos_state))
+            self.neg_value_metrics[i].update_state(tf.reduce_mean(neg_state))
+            self.pos_good_metrics[i].update_state(tf.reduce_mean(layer.goodness(pos_state)))
+            self.neg_good_metrics[i].update_state(tf.reduce_mean(layer.goodness(neg_state)))
+            self.pos_prob_metrics[i].update_state(tf.reduce_mean(layer.probability(pos_state)))
+            self.neg_prob_metrics[i].update_state(tf.reduce_mean(layer.probability(neg_state)))
+            self.pairwise_metrics[i].update_state(err)
+            gradients += grad
         
         # apply gradients
         self.optimizer.apply_gradients(zip(gradients, self.trainable_variables))
 
         # apply weight cost
         for layer in self.fflayers:
-            if isinstance(layer, FFDense | FFConv):
+            if isinstance(layer, FFDense):
                 layer.w.assign(layer.w - tf.cast(self.optimizer.learning_rate * layer.weight_cost, tf.float32) * layer.w)
+            if isinstance(layer, FFConv):
+                layer.w.assign(layer.w - tf.cast(self.optimizer.learning_rate * layer.weight_cost, tf.float32) * layer.w)
+                layer.lw.assign(layer.lw - tf.cast(self.optimizer.learning_rate * layer.weight_cost, tf.float32) * layer.lw)
 
         # return metrics
         return {metric.name: metric.result() for metric in self.custom_metrics if metric is not None}
@@ -305,14 +316,13 @@ class FFModel(Model):
 
         pos_state, neg_state = pos_inputs, neg_inputs
         for i, layer in enumerate(self.fflayers):
-            if isinstance(layer, FFDense | FFConv):
-                pos_state, neg_state, err = layer.calc_pairwise_err(layer.normalize(pos_state), layer.normalize(neg_state))
-                self.pos_value_metrics[i].update_state(tf.reduce_mean(pos_state))
-                self.neg_value_metrics[i].update_state(tf.reduce_mean(neg_state))
-                self.pos_good_metrics[i].update_state(tf.reduce_mean(layer.goodness(pos_state)))
-                self.neg_good_metrics[i].update_state(tf.reduce_mean(layer.goodness(neg_state)))
-                self.pos_prob_metrics[i].update_state(tf.reduce_mean(layer.probability(pos_state)))
-                self.neg_prob_metrics[i].update_state(tf.reduce_mean(layer.probability(neg_state)))
-                self.pairwise_metrics[i].update_state(err)
-            else:
-                pos_state, neg_state = layer(pos_state), layer(neg_state)
+            if isinstance(layer, FFDense):
+                pos_state, neg_state = self.flatten(pos_state), self.flatten(neg_state)
+            pos_state, neg_state, err = layer.calc_pairwise_err(layer.normalize(pos_state), layer.normalize(neg_state))
+            self.pos_value_metrics[i].update_state(tf.reduce_mean(pos_state))
+            self.neg_value_metrics[i].update_state(tf.reduce_mean(neg_state))
+            self.pos_good_metrics[i].update_state(tf.reduce_mean(layer.goodness(pos_state)))
+            self.neg_good_metrics[i].update_state(tf.reduce_mean(layer.goodness(neg_state)))
+            self.pos_prob_metrics[i].update_state(tf.reduce_mean(layer.probability(pos_state)))
+            self.neg_prob_metrics[i].update_state(tf.reduce_mean(layer.probability(neg_state)))
+            self.pairwise_metrics[i].update_state(err)
